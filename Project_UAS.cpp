@@ -38,7 +38,6 @@ int main() {
             cin >> hari_ini.Hari >> hari_ini.Bulan >> hari_ini.Tahun;
             tanggal_sudah_diset = true;
             cout << "Tanggal Hari Ini telah diset menjadi: " << hari_ini.Hari << "/" << hari_ini.Bulan << "/" << hari_ini.Tahun << endl;
-            cout << "\n\n\n";
         } else {
             cout << "Tanggal Hari Ini: " << hari_ini.Hari << "/" << hari_ini.Bulan << "/" << hari_ini.Tahun << " (Ketik 0 jika ingin mengubah tanggal)" << endl;
         }
@@ -88,12 +87,11 @@ int main() {
 
                 long long hari_ini_total = hitungHariTotal(hari_ini.Hari, hari_ini.Bulan, hari_ini.Tahun);
                 
-                // Variabel untuk melacak tugas paling mendesak
                 int index_paling_urgent = -1;
                 long long selisih_terkecil = -1;
 
-                cout << "\n\n\n=======================================================" << endl;
-                cout << "               ANALISIS PRIORITAS TUGAS                " << endl;
+                cout << "\n=======================================================" << endl;
+                cout << "                   ANALISIS PRIORITAS TUGAS            " << endl;
                 cout << "=======================================================" << endl;
 
                 for (size_t i = 0; i < daftar_tugas.size(); i++) {
@@ -128,7 +126,7 @@ int main() {
                     cout << "\n>>> REKOMENDASI UTAMA (PALING URGENT): <<<\n";
                     cout << "Kerjakan tugas \"" << daftar_tugas[index_paling_urgent].nama 
                          << "\" terlebih dahulu karena tenggatnya paling dekat (" 
-                         << selisih_terkecil << " hari lagi)!\n";
+                         << selisih_terkecil << " hari lagi)!\n\n\n";
                 } else {
                     cout << "\n>>> Semua tugas yang tercatat sudah melewati tenggat waktu (Overdue). <<<\n";
                 }
@@ -146,12 +144,12 @@ int main() {
                 cout << "Keluar dari program. Terima kasih!" << endl;
                 break;
             default:
-                cout << "\nOpsi menu tidak valid. Silakan pilih angka antara 1 hingga 4." << endl;
+                cout << "Opsi menu tidak valid. Silakan pilih angka antara 1 hingga 4." << endl;
                 break;
         }
 
         if (menuOption == 1 && !daftar_tugas.empty()) {
-            cout << "\n\n\n========================================" << endl;
+            cout << "\n========================================" << endl;
             cout << "      DAFTAR TUGAS DAN DEADLINE ANDA     " << endl;
             cout << "========================================" << endl;
             for (size_t i = 0; i < daftar_tugas.size(); i++) {
@@ -160,7 +158,7 @@ int main() {
                 cout << "  - Deadline   : " << daftar_tugas[i].batas_waktu.hari << "/" 
                      << daftar_tugas[i].batas_waktu.bulan << "/" 
                      << daftar_tugas[i].batas_waktu.tahun << endl;
-                cout << "----------------------------------------" << endl;
+                cout << "----------------------------------------\n\n\n" << endl;
             }
         }
 
