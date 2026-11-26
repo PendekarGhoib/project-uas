@@ -2,6 +2,9 @@
 #include <vector>
 #include <string>
 #include <iomanip>
+#include <fstream>
+#include <sstream>
+#include <ctime>
 using namespace std;
 
 // ==========================================
@@ -9,12 +12,6 @@ using namespace std;
 // ==========================================
 
 struct Deadline {
-    int hari;
-    int bulan;
-    int tahun;
-};
-
-struct HariSekarang {
     int hari;
     int bulan;
     int tahun;
@@ -33,12 +30,86 @@ struct Tugas {
     Status status;
 };
 
-// Array Dinamis
 vector<Tugas> daftarTugas;
+
+const string NAMA_FILE = "tugas.txt";
+const int BATAS_REMINDER = 2;  // reminder muncul jika sisa hari <= 2
 
 
 // ==========================================
-// 2. FUNCTION INPUT
+// 2. PENYIMPANAN FILE (fstream)
+// ==========================================
+// Format tiap baris di tugas.txt:
+// mataKuliah|namaTugas|hari|bulan|tahun|status
+
+void simpanData() {
+    ofstream file(NAMA_FILE);   // menimpa isi file lama dengan data terbaru
+
+    if (!file.is_open()) {
+        cout << "Peringatan: gagal menyimpan ke " << NAMA_FILE << "!\n";
+        return;
+    }
+
+    for (size_t i = 0; i < daftarTugas.size(); i++) {
+        file << daftarTugas[i].mataKuliah << "|"
+             << daftarTugas[i].nama << "|"
+             << daftarTugas[i].batasWaktu.hari << "|"
+             << daftarTugas[i].batasWaktu.bulan << "|"
+             << daftarTugas[i].batasWaktu.tahun << "|"
+             << (int)daftarTugas[i].status << "\n";
+    }
+}
+
+void muatData() {
+    ifstream file(NAMA_FILE);
+
+    // Kalau file belum ada (pertama kali dijalankan), lewati saja
+    if (!file.is_open()) {
+        return;
+    }
+
+    string baris;
+
+    while (getline(file, baris)) {
+
+        // Pecah baris berdasarkan tanda '|'
+        vector<string> bagian;
+        stringstream ss(baris);
+        string potongan;
+
+        while (getline(ss, potongan, '|')) {
+            bagian.push_back(potongan);
+        }
+
+        // Baris yang rusak dilewati
+        if (bagian.size() != 6) {
+            continue;
+        }
+
+        try {
+            Tugas t;
+            t.mataKuliah = bagian[0];
+            t.nama = bagian[1];
+            t.batasWaktu.hari = stoi(bagian[2]);
+            t.batasWaktu.bulan = stoi(bagian[3]);
+            t.batasWaktu.tahun = stoi(bagian[4]);
+
+            int s = stoi(bagian[5]);
+            if (s < 0 || s > 2) {
+                continue;
+            }
+            t.status = (Status)s;
+
+            daftarTugas.push_back(t);
+        } catch (...) {
+            // baris rusak, lewati
+        }
+    }
+}
+
+
+// ==========================================
+// 3. FUNCTION INPUT
 // ==========================================
 
 int inputAngka(string pesan) {
@@ -70,6 +141,14 @@ string inputTeks(string pesan) {
         cout << pesan;
         getline(cin, teks);
 
+        // Tanda '|' dipakai sebagai pemisah di file,
+        // jadi diganti agar data tidak rusak
+        for (size_t i = 0; i < teks.size(); i++) {
+            if (teks[i] == '|') {
+                teks[i] = '/';
+            }
+        }
+
         if (teks.empty()) {
             cout << "Input tidak boleh kosong!\n";
         }
@@ -81,7 +160,7 @@ string inputTeks(string pesan) {
 
 
 // ==========================================
-// 3. PERHITUNGAN DAN VALIDASI TANGGAL
+// 4. PERHITUNGAN DAN VALIDASI TANGGAL
 // ==========================================
 
 bool tahunKabisat(int tahun) {
@@ -136,8 +215,17 @@ Deadline inputTanggal(string judul) {
     }
 }
 
-// Mengubah tanggal menjadi jumlah hari kalender
-// agar bisa dibandingkan secara akurat.
+// Tanggal hari ini dari jam komputer
+Deadline tanggalSistem() {
+    time_t sekarang = time(nullptr);
+    tm* waktu = localtime(&sekarang);
+
+    Deadline hasil;
+    hasil.hari = waktu->tm_mday;
+    hasil.bulan = waktu->tm_mon + 1;
+    hasil.tahun = waktu->tm_year + 1900;
+    return hasil;
+}
 
 long long hitungHariTotal(Deadline tanggal) {
 
@@ -157,11 +245,8 @@ long long hitungHariTotal(Deadline tanggal) {
     return total;
 }
 
-long long selisihHari(Deadline tanggal1,
-                      Deadline tanggal2) {
-
-    return hitungHariTotal(tanggal1)
-         - hitungHariTotal(tanggal2);
+long long selisihHari(Deadline tanggal1, Deadline tanggal2) {
+    return hitungHariTotal(tanggal1) - hitungHariTotal(tanggal2);
 }
 
 void tampilkanTanggal(Deadline tanggal) {
@@ -174,7 +259,7 @@ void tampilkanTanggal(Deadline tanggal) {
 
 
 // ==========================================
-// 4. STATUS TUGAS
+// 5. STATUS TUGAS
 // ==========================================
 
 string namaStatus(Status status) {
@@ -197,7 +282,7 @@ string namaStatus(Status status) {
 
 
 // ==========================================
-// 5. MENAMBAH TUGAS
+// 6. MENAMBAH TUGAS
 // ==========================================
 
 void tambahTugas() {
@@ -206,26 +291,21 @@ void tambahTugas() {
 
     cout << "\n========== TAMBAH TUGAS ==========\n";
 
-    tugasBaru.mataKuliah =
-        inputTeks("Nama Mata Kuliah : ");
-
-    tugasBaru.nama =
-        inputTeks("Nama Tugas       : ");
-
-    tugasBaru.batasWaktu =
-        inputTanggal("Masukkan Deadline");
-
+    tugasBaru.mataKuliah = inputTeks("Nama Mata Kuliah : ");
+    tugasBaru.nama = inputTeks("Nama Tugas       : ");
+    tugasBaru.batasWaktu = inputTanggal("Masukkan Deadline");
     tugasBaru.status = BELUM_DIKERJAKAN;
 
-    // Menambahkan data tanpa menghapus tugas sebelumnya
     daftarTugas.push_back(tugasBaru);
+
+    simpanData();   // <-- simpan ke file
 
     cout << "\nTugas berhasil ditambahkan!\n";
 }
 
 
 // ==========================================
-// 6. MENAMPILKAN DAFTAR TUGAS
+// 7. MENAMPILKAN DAFTAR TUGAS
 // ==========================================
 
 void tampilkanTugas() {
@@ -241,14 +321,10 @@ void tampilkanTugas() {
 
         cout << "\nTugas ke-" << i + 1 << endl;
 
-        cout << "Mata Kuliah : "
-             << daftarTugas[i].mataKuliah << endl;
-
-        cout << "Nama Tugas  : "
-             << daftarTugas[i].nama << endl;
+        cout << "Mata Kuliah : " << daftarTugas[i].mataKuliah << endl;
+        cout << "Nama Tugas  : " << daftarTugas[i].nama << endl;
 
         cout << "Deadline    : ";
-
         tampilkanTanggal(daftarTugas[i].batasWaktu);
 
         cout << "\nStatus      : "
@@ -260,28 +336,21 @@ void tampilkanTugas() {
 
 
 // ==========================================
-// 7. BUBBLE SORT DEADLINE
+// 8. BUBBLE SORT DEADLINE
 // ==========================================
 
 void urutkanDeadline() {
 
     for (size_t i = 0; i + 1 < daftarTugas.size(); i++) {
 
-        for (size_t j = 0;
-             j + 1 < daftarTugas.size() - i; j++) {
+        for (size_t j = 0; j + 1 < daftarTugas.size() - i; j++) {
 
-            long long tanggal1 =
-                hitungHariTotal(daftarTugas[j].batasWaktu);
-
-            long long tanggal2 =
-                hitungHariTotal(daftarTugas[j + 1].batasWaktu);
+            long long tanggal1 = hitungHariTotal(daftarTugas[j].batasWaktu);
+            long long tanggal2 = hitungHariTotal(daftarTugas[j + 1].batasWaktu);
 
             if (tanggal1 > tanggal2) {
-
                 Tugas sementara = daftarTugas[j];
-
                 daftarTugas[j] = daftarTugas[j + 1];
-
                 daftarTugas[j + 1] = sementara;
             }
         }
@@ -309,18 +378,13 @@ void tampilkanPrioritas(Deadline hariIni) {
 
         adaTugasAktif = true;
 
-        long long sisaHari =
-            selisihHari(daftarTugas[i].batasWaktu, hariIni);
+        long long sisaHari = selisihHari(daftarTugas[i].batasWaktu, hariIni);
 
         cout << "\n" << daftarTugas[i].nama << endl;
-
-        cout << "Mata Kuliah : "
-             << daftarTugas[i].mataKuliah << endl;
+        cout << "Mata Kuliah : " << daftarTugas[i].mataKuliah << endl;
 
         cout << "Deadline    : ";
-
         tampilkanTanggal(daftarTugas[i].batasWaktu);
-
         cout << endl;
 
         if (sisaHari < 0) {
@@ -352,10 +416,31 @@ void tampilkanPrioritas(Deadline hariIni) {
 
 
 // ==========================================
-// 8. DEADLINE REMINDER
+// 9. DEADLINE REMINDER
 // ==========================================
 
-void deadlineReminder(Deadline hariIni) {
+int hitungMendesak(Deadline hariIni) {
+    int jumlah = 0;
+
+    for (size_t i = 0; i < daftarTugas.size(); i++) {
+        if (daftarTugas[i].status != SELESAI &&
+            selisihHari(daftarTugas[i].batasWaktu, hariIni) <= BATAS_REMINDER) {
+            jumlah++;
+        }
+    }
+
+    return jumlah;
+}
+
+// diAwal = true  -> dipakai saat program dibuka: diam saja jika tidak ada yang mendesak
+// diAwal = false -> dipakai dari menu: selalu menampilkan hasil
+void deadlineReminder(Deadline hariIni, bool diAwal = false) {
+
+    int mendesak = hitungMendesak(hariIni);
+
+    if (diAwal && mendesak == 0) {
+        return;
+    }
 
     cout << "\n========== DEADLINE REMINDER ==========\n";
 
@@ -364,7 +449,10 @@ void deadlineReminder(Deadline hariIni) {
         return;
     }
 
-    bool ditemukan = false;
+    if (mendesak == 0) {
+        cout << "Tidak ada deadline yang mendesak.\n";
+        return;
+    }
 
     for (size_t i = 0; i < daftarTugas.size(); i++) {
 
@@ -372,20 +460,13 @@ void deadlineReminder(Deadline hariIni) {
             continue;
         }
 
-        long long sisaHari =
-            selisihHari(daftarTugas[i].batasWaktu, hariIni);
+        long long sisaHari = selisihHari(daftarTugas[i].batasWaktu, hariIni);
 
-        if (sisaHari <= 2) {
-
-            ditemukan = true;
+        if (sisaHari <= BATAS_REMINDER) {
 
             cout << "\nPERINGATAN!\n";
-
-            cout << "Tugas      : "
-                 << daftarTugas[i].nama << endl;
-
-            cout << "Mata Kuliah: "
-                 << daftarTugas[i].mataKuliah << endl;
+            cout << "Tugas      : " << daftarTugas[i].nama << endl;
+            cout << "Mata Kuliah: " << daftarTugas[i].mataKuliah << endl;
 
             if (sisaHari < 0) {
                 cout << "Status     : SUDAH TERLAMBAT!\n";
@@ -394,20 +475,15 @@ void deadlineReminder(Deadline hariIni) {
                 cout << "Status     : DEADLINE HARI INI!\n";
             }
             else {
-                cout << "Status     : DEADLINE "
-                     << sisaHari << " HARI LAGI!\n";
+                cout << "Status     : DEADLINE " << sisaHari << " HARI LAGI!\n";
             }
         }
-    }
-
-    if (!ditemukan) {
-        cout << "Tidak ada deadline yang mendesak.\n";
     }
 }
 
 
 // ==========================================
-// 9. MENCARI INDEX TUGAS
+// 10. MENCARI INDEX TUGAS
 // ==========================================
 
 int pilihTugas() {
@@ -419,12 +495,9 @@ int pilihTugas() {
 
     tampilkanTugas();
 
-    int pilihan = inputAngka(
-        "\nMasukkan nomor tugas: ");
+    int pilihan = inputAngka("\nMasukkan nomor tugas: ");
 
-    if (pilihan < 1 ||
-        pilihan > (int)daftarTugas.size()) {
-
+    if (pilihan < 1 || pilihan > (int)daftarTugas.size()) {
         cout << "Nomor tugas tidak valid!\n";
         return -1;
     }
@@ -434,7 +507,7 @@ int pilihTugas() {
 
 
 // ==========================================
-// 10. MENGUBAH STATUS TUGAS
+// 11. MENGUBAH STATUS TUGAS
 // ==========================================
 
 void ubahStatus() {
@@ -473,12 +546,14 @@ void ubahStatus() {
             return;
     }
 
+    simpanData();   // <-- simpan ke file
+
     cout << "Status tugas berhasil diperbarui!\n";
 }
 
 
 // ==========================================
-// 11. EDIT TUGAS
+// 12. EDIT TUGAS
 // ==========================================
 
 void editTugas() {
@@ -493,21 +568,18 @@ void editTugas() {
 
     cout << "\nMasukkan data baru:\n";
 
-    daftarTugas[index].mataKuliah =
-        inputTeks("Mata Kuliah Baru : ");
+    daftarTugas[index].mataKuliah = inputTeks("Mata Kuliah Baru : ");
+    daftarTugas[index].nama = inputTeks("Nama Tugas Baru  : ");
+    daftarTugas[index].batasWaktu = inputTanggal("Deadline Baru");
 
-    daftarTugas[index].nama =
-        inputTeks("Nama Tugas Baru  : ");
-
-    daftarTugas[index].batasWaktu =
-        inputTanggal("Deadline Baru");
+    simpanData();   // <-- simpan ke file
 
     cout << "\nData tugas berhasil diperbarui!\n";
 }
 
 
 // ==========================================
-// 12. HAPUS TUGAS
+// 13. HAPUS TUGAS
 // ==========================================
 
 void hapusTugas() {
@@ -524,13 +596,14 @@ void hapusTugas() {
 
     daftarTugas.erase(daftarTugas.begin() + index);
 
-    cout << "\nTugas \"" << nama
-         << "\" berhasil dihapus!\n";
+    simpanData();   // <-- simpan ke file
+
+    cout << "\nTugas \"" << nama << "\" berhasil dihapus!\n";
 }
 
 
 // ==========================================
-// 13. STATISTIK AKADEMIK
+// 14. STATISTIK AKADEMIK
 // ==========================================
 
 void statistikAkademik(Deadline hariIni) {
@@ -560,8 +633,7 @@ void statistikAkademik(Deadline hariIni) {
         }
 
         if (daftarTugas[i].status != SELESAI &&
-            selisihHari(
-                daftarTugas[i].batasWaktu, hariIni) < 0) {
+            selisihHari(daftarTugas[i].batasWaktu, hariIni) < 0) {
 
             terlambat++;
         }
@@ -583,35 +655,33 @@ void statistikAkademik(Deadline hariIni) {
 
     cout << fixed << setprecision(1);
 
-    cout << "Progres Akademik  : "
-         << persentase << "%\n";
+    cout << "Progres Akademik  : " << persentase << "%\n";
 
     cout << "========================================\n";
 }
 
 
 // ==========================================
-// 14. MAIN PROGRAM
+// 15. MAIN PROGRAM
 // ==========================================
 
 int main() {
 
-    HariSekarang hariIni;
-
     int menuOption;
+
+    // 1) Baca data dari file saat program dibuka
+    muatData();
+
+    // 2) Tanggal hari ini otomatis dari komputer
+    Deadline hariIni = tanggalSistem();
 
     cout << "============================================\n";
     cout << "  ACADEMIC WORKLOAD MANAGEMENT SYSTEM\n";
     cout << "============================================\n";
+    cout << "Berhasil memuat " << daftarTugas.size() << " tugas.\n";
 
-    Deadline tanggal;
-
-    tanggal = inputTanggal(
-        "Masukkan Tanggal Hari Ini");
-
-    hariIni.hari = tanggal.hari;
-    hariIni.bulan = tanggal.bulan;
-    hariIni.tahun = tanggal.tahun;
+    // 3) Reminder otomatis muncul di awal
+    deadlineReminder(hariIni, true);
 
     do {
 
@@ -620,11 +690,7 @@ int main() {
         cout << "============================================\n";
 
         cout << "Tanggal Hari Ini: ";
-        tampilkanTanggal({
-            hariIni.hari,
-            hariIni.bulan,
-            hariIni.tahun
-        });
+        tampilkanTanggal(hariIni);
 
         cout << "\n\nMENU UTAMA\n";
 
@@ -652,19 +718,11 @@ int main() {
                 break;
 
             case 3:
-                deadlineReminder({
-                    hariIni.hari,
-                    hariIni.bulan,
-                    hariIni.tahun
-                });
+                deadlineReminder(hariIni);
                 break;
 
             case 4:
-                tampilkanPrioritas({
-                    hariIni.hari,
-                    hariIni.bulan,
-                    hariIni.tahun
-                });
+                tampilkanPrioritas(hariIni);
                 break;
 
             case 5:
@@ -680,24 +738,13 @@ int main() {
                 break;
 
             case 8:
-                statistikAkademik({
-                    hariIni.hari,
-                    hariIni.bulan,
-                    hariIni.tahun
-                });
+                statistikAkademik(hariIni);
                 break;
 
-            case 9: {
-                Deadline tanggalBaru =
-                    inputTanggal("Ubah Tanggal Hari Ini");
-
-                hariIni.hari = tanggalBaru.hari;
-                hariIni.bulan = tanggalBaru.bulan;
-                hariIni.tahun = tanggalBaru.tahun;
-
+            case 9:
+                hariIni = inputTanggal("Ubah Tanggal Hari Ini");
                 cout << "Tanggal berhasil diperbarui!\n";
                 break;
-            }
 
             case 10:
                 cout << "\nTerima kasih telah menggunakan "
