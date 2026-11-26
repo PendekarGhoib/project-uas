@@ -293,7 +293,7 @@ void tambahTugas() {
 
     tugasBaru.mataKuliah = inputTeks("Nama Mata Kuliah : ");
     tugasBaru.nama = inputTeks("Nama Tugas       : ");
-    tugasBaru.batasWaktu = inputTanggal("Masukkan Deadline");
+    tugasBaru.batasWaktu = inputTanggal("Masukkan Deadline (Tanggal Angka)");
     tugasBaru.status = BELUM_DIKERJAKAN;
 
     daftarTugas.push_back(tugasBaru);
